@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Conversation states
 QUERA_SESSION = 0
+GOOGLE_AUTH_CODE = 1  # Re-add this state for handling the auth code
 
 # File to store user data
 USER_DATA_FILE = 'user_data.json'
@@ -47,6 +48,7 @@ class QueraCalendarBot:
             entry_points=[CommandHandler('start', self.start)],
             states={
                 QUERA_SESSION: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.process_quera_session)],
+                GOOGLE_AUTH_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.process_google_auth_code)],
             },
             fallbacks=[CommandHandler('cancel', self.cancel)],
         )
@@ -117,39 +119,78 @@ class QueraCalendarBot:
         self._save_user_data()
         logger.info(f"Stored valid Quera session for user {user_id}")
         
-        # Send success message for Quera validation
-        await update.message.reply_text(
-            "✅ Quera session validated!\n\n"
-            "Now, let's set up Google Calendar access.\n"
-            "Click the link that will appear in your browser to authorize access to your Google Calendar.\n"
-            "After completing the Google authorization, you'll be redirected back to this bot."
-        )
-        
-        # Initialize Google Calendar manager
+        # Initialize Google Calendar manager and start authentication
         calendar_manager = GoogleCalendarManager(user_id)
+        auth_info = calendar_manager.start_authentication()
         
-        # Start Google Calendar authentication
-        logger.info(f"Starting Google Calendar authentication for user {user_id}")
-        if not calendar_manager.authenticate():
-            logger.error(f"Google Calendar authentication failed for user {user_id}")
+        if not auth_info:
+            logger.error(f"Failed to start Google Calendar authentication for user {user_id}")
             await update.message.reply_text(
                 "❌ Failed to start Google Calendar authentication.\n"
                 "Please try /start again."
             )
             return ConversationHandler.END
+            
+        # Store calendar manager in context for later
+        context.user_data['calendar_manager'] = calendar_manager
         
-        logger.info(f"Google Calendar authentication successful for user {user_id}")
+        # Send authentication instructions
         await update.message.reply_text(
-            "🎉 Setup complete!\n\n"
-            "You can now:\n"
-            "- Use /sync to manually sync your assignments\n"
-            "- Use /autosync to enable automatic syncing every 3 hours\n"
-            "- Use /help to see all available commands"
+            "✅ Quera session validated!\n\n"
+            "To complete Google Calendar setup:\n"
+            f"1. Visit this URL: {auth_info['auth_url']}\n"
+            f"2. Sign in with your Google account and authorize the app\n"
+            f"3. You'll receive a code - copy it and send it to me\n\n"
+            "I'm waiting for the code..."
         )
+        
+        return GOOGLE_AUTH_CODE
+
+    async def process_google_auth_code(self, update: Update, context: CallbackContext) -> int:
+        """Process the Google authorization code."""
+        user_id = str(update.effective_user.id)
+        auth_code = update.message.text.strip()
+        
+        # Get calendar manager from context
+        calendar_manager = context.user_data.get('calendar_manager')
+        if not calendar_manager:
+            await update.message.reply_text(
+                "❌ Authentication session expired.\n"
+                "Please start over with /start"
+            )
+            return ConversationHandler.END
+        
+        # Complete authentication with the provided code
+        status_message = await update.message.reply_text("Verifying authentication code...")
+        
+        if calendar_manager.complete_authentication(auth_code):
+            logger.info(f"Google Calendar authentication successful for user {user_id}")
+            await status_message.edit_text(
+                "🎉 Setup complete!\n\n"
+                "You can now:\n"
+                "- Use /sync to manually sync your assignments\n"
+                "- Use /autosync to enable automatic syncing every 3 hours\n"
+                "- Use /help to see all available commands"
+            )
+        else:
+            logger.error(f"Google Calendar authentication failed for user {user_id}")
+            await status_message.edit_text(
+                "❌ Failed to complete Google Calendar authentication.\n"
+                "The code might be invalid or expired. Please try /start again."
+            )
+        
+        # Clean up context
+        if 'calendar_manager' in context.user_data:
+            del context.user_data['calendar_manager']
+        
         return ConversationHandler.END
 
     async def cancel(self, update: Update, context: CallbackContext) -> int:
         """Cancel the conversation."""
+        # Clean up any pending authentication
+        if 'calendar_manager' in context.user_data:
+            del context.user_data['calendar_manager']
+            
         await update.message.reply_text(
             "Setup cancelled. Use /start to try again."
         )
@@ -183,7 +224,8 @@ class QueraCalendarBot:
             if not calendar_manager.authenticate():
                 await status_message.delete()
                 await update.message.reply_text(
-                    "❌ Google Calendar authentication failed. Please set up again with /start"
+                    "❌ Google Calendar authentication failed or expired.\n"
+                    "Please set up again with /start"
                 )
                 return
             

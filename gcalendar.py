@@ -1,9 +1,17 @@
 import os
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Tuple, Dict
 import json
+import webbrowser
+import socket
+import random
+import string
+from urllib.parse import urlparse, parse_qs
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 from dotenv import load_dotenv
+import requests
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -46,6 +54,23 @@ class GoogleCalendarManager:
         self.bot_username = os.getenv('BOT_USERNAME')
         if not self.bot_username:
             logger.warning("BOT_USERNAME not found in environment variables")
+        
+        # Load client configuration
+        try:
+            with open('credentials.json', 'r') as f:
+                self.client_config = json.load(f)
+                self.client_id = self.client_config['installed']['client_id']
+                self.client_secret = self.client_config['installed']['client_secret']
+        except Exception as e:
+            logger.error(f"Error loading client configuration: {e}")
+            self.client_config = None
+            self.client_id = None
+            self.client_secret = None
+
+        # OAuth state
+        self.auth_url = None
+        self.auth_code = None
+        self.flow = None
 
     def _load_credentials(self) -> Optional[Credentials]:
         """Load credentials for the specific user from the tokens file."""
@@ -54,7 +79,11 @@ class GoogleCalendarManager:
                 with open(self.tokens_file, 'r') as f:
                     all_tokens = json.load(f)
                     if self.user_id in all_tokens:
-                        return Credentials.from_authorized_user_info(all_tokens[self.user_id], SCOPES)
+                        creds = Credentials.from_authorized_user_info(all_tokens[self.user_id], SCOPES)
+                        if creds and creds.expired and creds.refresh_token:
+                            creds.refresh(Request())
+                            self._save_credentials(creds)
+                        return creds
         except Exception as e:
             logger.error(f"Error loading credentials: {e}")
         return None
@@ -82,51 +111,64 @@ class GoogleCalendarManager:
             logger.error(f"Error building service: {e}")
             return None
 
-    def authenticate(self) -> bool:
+    def start_authentication(self) -> Dict[str, str]:
         """
-        Handle the OAuth2 flow for Google Calendar API.
+        Start the OAuth2 flow and return the authorization URL.
+        Returns a dictionary with the authorization URL.
+        """
+        try:
+            # Create a unique state value for security
+            state = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(30))
+            
+            # Create the flow
+            self.flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json',
+                SCOPES,
+                redirect_uri='urn:ietf:wg:oauth:2.0:oob'  # Use out-of-band redirect URI
+            )
+            
+            # Generate the authorization URL
+            auth_url = self.flow.authorization_url(
+                access_type='offline',
+                include_granted_scopes='true',
+                state=state
+            )[0]
+            
+            self.auth_url = auth_url
+            
+            return {
+                'auth_url': auth_url
+            }
+        except Exception as e:
+            logger.error(f"Error starting authentication: {e}")
+            return None
+
+    def complete_authentication(self, code: str) -> bool:
+        """
+        Complete the OAuth2 flow using the authorization code.
         Returns True if authentication was successful.
         """
         try:
-            if not self.credentials or not self.credentials.valid:
-                if self.credentials and self.credentials.expired and self.credentials.refresh_token:
-                    self.credentials.refresh(Request())
-                else:
-                    if not self.bot_username:
-                        logger.error("Cannot start OAuth flow: BOT_USERNAME not set in environment variables")
-                        return False
-                        
-                    redirect_uri = f"https://t.me/{self.bot_username}"
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        'credentials.json',
-                        SCOPES,
-                        redirect_uri=redirect_uri
-                    )
-                    # Create a custom redirect page that automatically redirects to Telegram
-                    redirect_html = f"""
-                    <html>
-                        <head>
-                            <title>Authentication Successful</title>
-                            <meta http-equiv="refresh" content="0;url={redirect_uri}">
-                        </head>
-                        <body>
-                            <p>Authentication successful! Redirecting to Telegram...</p>
-                            <script>window.location.href = "{redirect_uri}";</script>
-                        </body>
-                    </html>
-                    """
-                    self.credentials = flow.run_local_server(
-                        port=0,
-                        authorization_prompt_message="Please complete authentication in your browser...",
-                        success_response=redirect_html
-                    )
-                
+            if not self.flow:
+                logger.error("Authentication flow not started")
+                return False
+
+            try:
+                # Exchange the code for credentials
+                self.flow.fetch_token(code=code)
+                self.credentials = self.flow.credentials
                 self._save_credentials(self.credentials)
                 self.service = self._build_service()
-            return True
+                self.flow = None  # Clear the flow
+                return True
+            except Exception as e:
+                logger.error(f"Error fetching token: {e}")
+                return False
+
         except Exception as e:
             logger.error(f"Authentication error: {e}")
             return False
+
     def add_event(self, event: QueraEvent) -> str:
         """
         Adds a single event to Google Calendar or updates if it exists with a different date.
@@ -243,4 +285,22 @@ class GoogleCalendarManager:
                 results['failed'] += 1
         
         logger.info(f"Sync complete: {results}")
-        return results 
+        return results
+
+    def authenticate(self) -> bool:
+        """
+        Check if authenticated and refresh token if needed.
+        Returns True if authenticated, False otherwise.
+        """
+        if self.credentials:
+            if self.credentials.expired and self.credentials.refresh_token:
+                try:
+                    self.credentials.refresh(Request())
+                    self._save_credentials(self.credentials)
+                    self.service = self._build_service()
+                    return True
+                except Exception as e:
+                    logger.error(f"Error refreshing token: {e}")
+                    return False
+            return True
+        return False 
