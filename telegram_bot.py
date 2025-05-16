@@ -24,10 +24,12 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+# Set httpx logger to WARNING to silence INFO messages
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Conversation states
-QUERA_SESSION, GOOGLE_AUTH = range(2)
+QUERA_SESSION = 0
 
 # File to store user data
 USER_DATA_FILE = 'user_data.json'
@@ -45,7 +47,6 @@ class QueraCalendarBot:
             entry_points=[CommandHandler('start', self.start)],
             states={
                 QUERA_SESSION: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.process_quera_session)],
-                GOOGLE_AUTH: [CommandHandler('done', self.process_google_auth)],
             },
             fallbacks=[CommandHandler('cancel', self.cancel)],
         )
@@ -96,60 +97,53 @@ class QueraCalendarBot:
         return QUERA_SESSION
 
     async def process_quera_session(self, update: Update, context: CallbackContext) -> int:
-        """Process the Quera session ID and start Google auth."""
+        """Process the Quera session ID and complete setup."""
         user_id = str(update.effective_user.id)
         session_id = update.message.text.strip()
+        
+        logger.info(f"Validating Quera session for user {user_id}")
         
         # Validate session ID
         scraper = QueraScraper(session_id)
         if not scraper.validate_session():
             await update.message.reply_text(
-                "❌ Invalid session ID. Please check and try again, or use /cancel to stop."
+                "❌ Invalid or expired Quera session ID.\n"
+                "Please check and try again, or use /cancel to stop."
             )
             return QUERA_SESSION
         
         # Store session ID
         self.user_data[user_id] = {'quera_session_id': session_id}
         self._save_user_data()
+        logger.info(f"Stored valid Quera session for user {user_id}")
+        
+        # Send success message for Quera validation
+        await update.message.reply_text(
+            "✅ Quera session validated!\n\n"
+            "Now, let's set up Google Calendar access.\n"
+            "Click the link that will appear in your browser to authorize access to your Google Calendar.\n"
+            "After completing the Google authorization, you'll be redirected back to this bot."
+        )
         
         # Initialize Google Calendar manager
         calendar_manager = GoogleCalendarManager(user_id)
         
         # Start Google Calendar authentication
+        logger.info(f"Starting Google Calendar authentication for user {user_id}")
         if not calendar_manager.authenticate():
+            logger.error(f"Google Calendar authentication failed for user {user_id}")
             await update.message.reply_text(
-                "❌ Failed to start Google Calendar authentication. Please try /start again."
+                "❌ Failed to start Google Calendar authentication.\n"
+                "Please try /start again."
             )
             return ConversationHandler.END
         
+        logger.info(f"Google Calendar authentication successful for user {user_id}")
         await update.message.reply_text(
-            "✅ Quera session validated!\n\n"
-            "Now, please authenticate with Google Calendar in your browser.\n"
-            "After completing the authentication, type /done"
-        )
-        return GOOGLE_AUTH
-
-    async def process_google_auth(self, update: Update, context: CallbackContext) -> int:
-        """Complete the setup process."""
-        user_id = str(update.effective_user.id)
-        
-        # Verify both Quera and Google Calendar are set up
-        if user_id not in self.user_data:
-            await update.message.reply_text(
-                "❌ Something went wrong. Please start over with /start"
-            )
-            return ConversationHandler.END
-        
-        calendar_manager = GoogleCalendarManager(user_id)
-        if not calendar_manager.authenticate():
-            await update.message.reply_text(
-                "❌ Google Calendar authentication failed. Please try /start again."
-            )
-            return ConversationHandler.END
-        
-        await update.message.reply_text(
-            "🎉 Setup complete! You can now:\n"
-            "- Use /sync to sync your Quera assignments to Google Calendar\n"
+            "🎉 Setup complete!\n\n"
+            "You can now:\n"
+            "- Use /sync to manually sync your assignments\n"
+            "- Use /autosync to enable automatic syncing every 3 hours\n"
             "- Use /help to see all available commands"
         )
         return ConversationHandler.END

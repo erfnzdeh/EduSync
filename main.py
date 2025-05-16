@@ -72,7 +72,8 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
+# Set httpx logger to WARNING to silence INFO messages
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # If modifying these scopes, delete the file token.json.

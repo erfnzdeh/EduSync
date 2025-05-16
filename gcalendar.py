@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Optional
 import json
+from dotenv import load_dotenv
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -11,6 +12,9 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from quera import QueraEvent, extract_assignment_id
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +25,8 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+# Set httpx logger to WARNING to silence INFO messages
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # If modifying these scopes, delete the file token.json.
@@ -37,6 +43,9 @@ class GoogleCalendarManager:
         self.tokens_file = tokens_file
         self.credentials = self._load_credentials()
         self.service = None if not self.credentials else self._build_service()
+        self.bot_username = os.getenv('BOT_USERNAME')
+        if not self.bot_username:
+            logger.warning("BOT_USERNAME not found in environment variables")
 
     def _load_credentials(self) -> Optional[Credentials]:
         """Load credentials for the specific user from the tokens file."""
@@ -83,8 +92,34 @@ class GoogleCalendarManager:
                 if self.credentials and self.credentials.expired and self.credentials.refresh_token:
                     self.credentials.refresh(Request())
                 else:
-                    flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-                    self.credentials = flow.run_local_server(port=0)
+                    if not self.bot_username:
+                        logger.error("Cannot start OAuth flow: BOT_USERNAME not set in environment variables")
+                        return False
+                        
+                    redirect_uri = f"https://t.me/{self.bot_username}"
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        'credentials.json',
+                        SCOPES,
+                        redirect_uri=redirect_uri
+                    )
+                    # Create a custom redirect page that automatically redirects to Telegram
+                    redirect_html = f"""
+                    <html>
+                        <head>
+                            <title>Authentication Successful</title>
+                            <meta http-equiv="refresh" content="0;url={redirect_uri}">
+                        </head>
+                        <body>
+                            <p>Authentication successful! Redirecting to Telegram...</p>
+                            <script>window.location.href = "{redirect_uri}";</script>
+                        </body>
+                    </html>
+                    """
+                    self.credentials = flow.run_local_server(
+                        port=0,
+                        authorization_prompt_message="Please complete authentication in your browser...",
+                        success_response=redirect_html
+                    )
                 
                 self._save_credentials(self.credentials)
                 self.service = self._build_service()
@@ -92,7 +127,6 @@ class GoogleCalendarManager:
         except Exception as e:
             logger.error(f"Authentication error: {e}")
             return False
-
     def add_event(self, event: QueraEvent) -> str:
         """
         Adds a single event to Google Calendar or updates if it exists with a different date.

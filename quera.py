@@ -16,6 +16,8 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+# Set httpx logger to WARNING to silence INFO messages
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -178,11 +180,34 @@ class QueraScraper:
     def validate_session(self) -> bool:
         """
         Validates if the session ID is still valid by making a test request.
+        Returns True if session is valid, False otherwise.
         """
         try:
-            response = requests.get('https://quera.org/course', 
-                                 headers=self.headers, 
-                                 cookies=self.cookies)
-            return 'login' not in response.url
-        except:
+            logger.info("Validating Quera session...")
+            response = requests.get(
+                'https://quera.org/course',
+                headers=self.headers,
+                cookies=self.cookies,
+                timeout=10,
+                allow_redirects=True  # Follow redirects to check final URL
+            )
+            
+            # Check if we got redirected to login page
+            if 'login' in response.url:
+                logger.warning("Invalid or expired Quera session - redirected to login page")
+                return False
+                
+            # Check if we can find the assignments section
+            if 'مهلت تمرین‌های پیش رو' in response.text:
+                logger.info("Quera session is valid - found assignments section")
+                return True
+                
+            logger.warning("Invalid Quera session - could not find assignments section")
+            return False
+            
+        except requests.RequestException as e:
+            logger.error(f"Error validating Quera session: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error during session validation: {e}")
             return False 
