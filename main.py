@@ -16,6 +16,8 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from telegram_bot import QueraCalendarBot
+
 # Persian month names mapping
 PERSIAN_MONTHS = {
     'فروردین': 1, 'اردیبهشت': 2, 'خرداد': 3,
@@ -29,7 +31,7 @@ def convert_persian_date(persian_date: str) -> datetime:
     Convert Persian date string (e.g., '۲۵ اردیبهشت') to datetime object
     using jdatetime library for accurate Jalali to Gregorian conversion.
     """
-    logger.debug(f"Converting Persian date: {persian_date}")
+    logger.info(f"Converting Persian date: {persian_date}")
     
     # Convert Persian numerals to English
     persian_to_english = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
@@ -57,13 +59,13 @@ def convert_persian_date(persian_date: str) -> datetime:
     
     # Convert to Gregorian datetime
     gregorian_date = jd.togregorian()
-    logger.debug(f"Converted to Gregorian datetime: {gregorian_date}")
+    logger.info(f"Converted to Gregorian datetime: {gregorian_date}")
     
     return gregorian_date
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler('app.log', encoding='utf-8'),  # Add encoding for proper handling of Persian text
@@ -88,35 +90,35 @@ def get_google_calendar_service():
     Authenticate and create Google Calendar service.
     Returns the Calendar API service object.
     """
-    logger.debug("Starting Google Calendar authentication process")
+    logger.info("Starting Google Calendar authentication process")
     creds = None
     
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first time.
     if os.path.exists('token.json'):
-        logger.debug("Found existing token.json")
+        logger.info("Found existing token.json")
         try:
             creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-            logger.debug("Successfully loaded credentials from token.json")
+            logger.info("Successfully loaded credentials from token.json")
         except Exception as e:
             logger.error(f"Error loading credentials from token.json: {e}")
     
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
-        logger.debug("No valid credentials found, starting new authentication flow")
+        logger.info("No valid credentials found, starting new authentication flow")
         if creds and creds.expired and creds.refresh_token:
-            logger.debug("Refreshing expired credentials")
+            logger.info("Refreshing expired credentials")
             try:
                 creds.refresh(Request())
-                logger.debug("Successfully refreshed credentials")
+                logger.info("Successfully refreshed credentials")
             except Exception as e:
                 logger.error(f"Error refreshing credentials: {e}")
         else:
-            logger.debug("Starting new OAuth2 flow")
+            logger.info("Starting new OAuth2 flow")
             try:
                 flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
                 creds = flow.run_local_server(port=0)
-                logger.debug("Successfully completed OAuth2 flow")
+                logger.info("Successfully completed OAuth2 flow")
             except Exception as e:
                 logger.error(f"Error in OAuth2 flow: {e}")
                 raise
@@ -125,13 +127,13 @@ def get_google_calendar_service():
         try:
             with open('token.json', 'w') as token:
                 token.write(creds.to_json())
-            logger.debug("Successfully saved new credentials to token.json")
+            logger.info("Successfully saved new credentials to token.json")
         except Exception as e:
             logger.error(f"Error saving credentials to token.json: {e}")
 
     try:
         service = build('calendar', 'v3', credentials=creds)
-        logger.debug("Successfully built Google Calendar service")
+        logger.info("Successfully built Google Calendar service")
         return service
     except Exception as e:
         logger.error(f"Error building Google Calendar service: {e}")
@@ -141,7 +143,7 @@ def scrape_quera_events() -> List[QueraEvent]:
     """
     Scrapes events from Quera website and returns a list of QueraEvent objects.
     """
-    logger.debug("Starting Quera event scraping")
+    logger.info("Starting Quera event scraping")
     
     # Get session ID from environment variables
     session_id = os.getenv('QUERA_SESSION_ID')
@@ -163,7 +165,7 @@ def scrape_quera_events() -> List[QueraEvent]:
     try:
         # Make the request to Quera
         url = 'https://quera.org/course'
-        logger.debug("Making request to Quera course page...")
+        logger.info("Making request to Quera course page...")
         response = requests.get(url, headers=headers, cookies=cookies)
         response.raise_for_status()
         
@@ -171,8 +173,8 @@ def scrape_quera_events() -> List[QueraEvent]:
         with open('debug_section.html', 'w', encoding='utf-8') as f:
             f.write(response.text)
         
-        logger.debug(f"Response status code: {response.status_code}")
-        logger.debug(f"Response URL (after any redirects): {response.url}")
+        logger.info(f"Response status code: {response.status_code}")
+        logger.info(f"Response URL (after any redirects): {response.url}")
         
         # Check if we got redirected to login
         if 'login' in response.url:
@@ -226,7 +228,7 @@ def scrape_quera_events() -> List[QueraEvent]:
                         description=description
                     )
                     quera_events.append(event)
-                    logger.debug(f"Created event: {event.title}")
+                    logger.info(f"Created event: {event.title}")
             
             except Exception as e:
                 logger.error(f"Error parsing assignment div: {e}")
@@ -257,7 +259,7 @@ def add_event_to_calendar(service, event: QueraEvent) -> bool:
     Adds a single event to Google Calendar as a full-day event or updates if it exists with a different date.
     Returns True if successful (either added or updated), False otherwise.
     """
-    logger.debug(f"Checking/Adding event to calendar: {event.title}")
+    logger.info(f"Checking/Adding event to calendar: {event.title}")
     
     # Extract assignment ID from the URL in the description
     assignment_id = extract_assignment_id(event.description.split("Assignment Link: ")[1])
@@ -313,7 +315,7 @@ def add_event_to_calendar(service, event: QueraEvent) -> bool:
                     body=event_body
                 ).execute()
                 logger.info(f"Updated existing event with new deadline: {event.title}")
-                logger.debug(f"Event details: {json.dumps(updated_event, indent=2)}")
+                logger.info(f"Event details: {json.dumps(updated_event, indent=2)}")
                 return "updated"
             else:
                 logger.info(f"Event already exists with same deadline: {event.title}")
@@ -322,7 +324,7 @@ def add_event_to_calendar(service, event: QueraEvent) -> bool:
         # If no existing event found, create new one
         event_result = service.events().insert(calendarId='primary', body=event_body).execute()
         logger.info(f"Successfully added new event: {event.title}")
-        logger.debug(f"Event details: {json.dumps(event_result, indent=2)}")
+        logger.info(f"Event details: {json.dumps(event_result, indent=2)}")
         return "created"
         
     except HttpError as error:
@@ -369,38 +371,19 @@ def sync_events_to_calendar(events: List[QueraEvent]) -> None:
         print("\nError syncing events to calendar. Check the logs for details.")
 
 def main():
-    """
-    Main function to run the Quera to Google Calendar sync.
-    """
-    try:
-        # Load environment variables
-        load_dotenv()
-        
-        # Scrape events from Quera
-        print("Fetching assignments from Quera...")
-        events = scrape_quera_events()
-        
-        if not events:
-            print("No assignments found to sync.")
-            return
-        
-        # Print found assignments
-        print(f"\nFound {len(events)} assignments:")
-        for event in events:
-            print(f"\nTitle: {event.title}")
-            print(f"Start: {event.start_time}")
-            print(f"End: {event.end_time}")
-            print(f"Description: {event.description}")
-        
-        # Sync to calendar
-        print("\nSyncing assignments to Google Calendar...")
-        sync_events_to_calendar(events)
-        
-    except Exception as e:
-        logger.error(f"Error in main function: {e}")
-        logger.exception("Full traceback:")
-        print(f"\nError: {e}")
-        print("Check the logs for more details.")
+    # Load environment variables
+    load_dotenv()
+    
+    # Get Telegram bot token from environment variables
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not token:
+        print("Error: TELEGRAM_BOT_TOKEN not found in environment variables")
+        return
+    
+    # Create and run the bot
+    bot = QueraCalendarBot(token)
+    print("Bot is running...")
+    bot.run()
 
 if __name__ == "__main__":
     main() 

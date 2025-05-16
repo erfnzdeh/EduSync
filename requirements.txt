@@ -5,4 +5,5 @@ python-dateutil==2.8.2
 requests==2.31.0
 beautifulsoup4==4.12.3
 python-dotenv==1.0.1
-jdatetime 
+jdatetime
+python-telegram-bot
