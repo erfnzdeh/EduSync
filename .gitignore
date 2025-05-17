@@ -59,3 +59,5 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST 
+
+user_data.json
