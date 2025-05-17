@@ -11,6 +11,15 @@ A Telegram bot that automatically syncs your Quera/CW assignments with Google Ca
 - **Status Tracking**: Clear visual indicators for connection status
 - **User-Friendly Interface**: Intuitive button-based navigation
 
+## ✅ TODOs
+[] Write Privacy Policy For Google
+[] Deploy
+[] Get User Feedback !
+[] Add SQL DB
+[] Add CW Feature
+[] Add User:Pass Login Option For CW
+[] Add Admin Dashboard or CMS
+
 ## 🚀 Getting Started
 
 ### Prerequisites
