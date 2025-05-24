@@ -11,4 +11,14 @@ run:
     port: 8080
   env:
     - name: PORT
+      value: "8080"
+services:
+  - name: web
+    git:
+      branch: main
+      repo_clone_url: ${_self}
+    build_command: pip install -r requirements.txt
+    run_command: gunicorn --worker-class gthread --workers 4 --bind 0.0.0.0:8080 main:app
+    envs:
+    - key: PORT
       value: "8080" 
