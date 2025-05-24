@@ -1,0 +1,14 @@
+version: 1.0
+runtime: python3
+build:
+  commands:
+    build:
+      - pip install -r requirements.txt
+run:
+  runtime-version: 3.11
+  command: python main.py
+  network:
+    port: 8080
+  env:
+    - name: PORT
+      value: 8080 

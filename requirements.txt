@@ -7,3 +7,4 @@ beautifulsoup4==4.12.3
 python-dotenv==1.0.1
 jdatetime
 python-telegram-bot
+flask==3.0.2
