@@ -18,7 +18,9 @@ services:
       branch: main
       repo_clone_url: ${_self}
     build_command: pip install -r requirements.txt
-    run_command: gunicorn "main:app" --workers 4 --worker-class gthread --bind 0.0.0.0:8080 --log-level debug
+    run_command: gunicorn "main:app" --workers 1 --timeout 120 --bind 0.0.0.0:8080 --log-level info --access-logfile -
     envs:
     - key: PORT
-      value: "8080" 
+      value: "8080"
+    - key: PYTHONUNBUFFERED
+      value: "true" 
