@@ -5,6 +5,9 @@ from flask import Flask
 from dotenv import load_dotenv
 from telegram_bot import QueraCalendarBot
 
+# Load environment variables
+load_dotenv()
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -30,24 +33,17 @@ def run_bot(token):
     print("Bot is running...")
     bot.run()
 
-def main():
-    # Load environment variables
-    load_dotenv()
-    
-    # Get Telegram bot token from environment variables
+# Start the bot when the Flask app starts
+@app.before_first_request
+def start_bot():
     token = os.getenv('TELEGRAM_BOT_TOKEN')
-    if not token:
-        print("Error: TELEGRAM_BOT_TOKEN not found in environment variables")
-        return
-    
-    # Start the bot in a separate thread
-    bot_thread = threading.Thread(target=run_bot, args=(token,))
-    bot_thread.daemon = True
-    bot_thread.start()
-    
-    # Run Flask app
-    port = int(os.getenv('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    if token:
+        bot_thread = threading.Thread(target=run_bot, args=(token,))
+        bot_thread.daemon = True
+        bot_thread.start()
+    else:
+        logger.error("TELEGRAM_BOT_TOKEN not found in environment variables")
 
 if __name__ == "__main__":
-    main() 
+    port = int(os.getenv('PORT', 8080))
+    app.run(host='0.0.0.0', port=port) 
