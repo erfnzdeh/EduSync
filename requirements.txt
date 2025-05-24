@@ -8,3 +8,4 @@ python-dotenv==1.0.1
 jdatetime
 python-telegram-bot
 flask==3.0.2
+gunicorn==21.2.0

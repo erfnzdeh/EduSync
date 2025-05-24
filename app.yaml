@@ -6,9 +6,9 @@ build:
       - pip install -r requirements.txt
 run:
   runtime-version: 3.11
-  command: python main.py
+  command: gunicorn --worker-class gthread --workers 4 --bind 0.0.0.0:8080 main:app
   network:
     port: 8080
   env:
     - name: PORT
-      value: 8080 
+      value: "8080" 
