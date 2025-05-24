@@ -1,26 +1,20 @@
-version: 1.0
-runtime: python3
-build:
-  commands:
-    build:
-      - pip install -r requirements.txt
-run:
-  runtime-version: 3.11
-  command: gunicorn --worker-class gthread --workers 4 --bind 0.0.0.0:8080 main:app
-  network:
-    port: 8080
-  env:
-    - name: PORT
-      value: "8080"
-services:
-  - name: web
-    git:
-      branch: main
-      repo_clone_url: ${_self}
-    build_command: pip install -r requirements.txt
-    run_command: gunicorn "main:app" --workers 1 --timeout 120 --bind 0.0.0.0:8080 --log-level info --access-logfile -
-    envs:
-    - key: PORT
-      value: "8080"
-    - key: PYTHONUNBUFFERED
-      value: "true" 
+runtime: python
+env: flex
+entrypoint: python main.py
+
+runtime_config:
+  python_version: 3.11
+
+manual_scaling:
+  instances: 1
+
+env_variables:
+  PORT: "8080"
+
+health_check:
+  enable_health_check: True
+  check_interval_sec: 5
+  timeout_sec: 4
+  unhealthy_threshold: 2
+  healthy_threshold: 2
+  restart_threshold: 300 
