@@ -1,9 +1,9 @@
-google-auth-oauthlib==1.2.0
+google-auth-oauthlib>=1.0.0
 google-auth-httplib2==0.2.0
 google-api-python-client==2.118.0
 python-dateutil==2.8.2
 requests==2.31.0
 beautifulsoup4==4.12.3
 python-dotenv==1.0.1
-jdatetime
-python-telegram-bot
+jdatetime==4.1.1
+python-telegram-bot==20.8
