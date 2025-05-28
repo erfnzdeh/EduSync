@@ -288,7 +288,7 @@ class QueraCalendarBot:
         elif selection == CONTACT_US:
             await update.message.reply_text(
                 "📧 For support or feedback:\n"
-                "1. Visit our GitHub repository: https://github.com/erfnzdeh/EduSync [TODO: make this public]\n"
+                "1. Visit our GitHub repository: https://github.com/erfnzdeh/EduSync\n"
                 "2. Open an issue for bug reports or feature requests\n"
                 "3. Or contact me directly at: t.me/Pouri2048",
                 reply_markup=self.get_main_keyboard(user_id),

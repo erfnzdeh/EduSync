@@ -33,8 +33,8 @@ A Telegram bot that automatically syncs your Quera/CW assignments with Google Ca
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/erfnzdeh/quera-to-google-calendar-automation.git
-cd quera-to-google-calendar-automation
+git clone https://github.com/erfnzdeh/EduSync.git
+cd EduSync
 ```
 
 2. Create and activate a virtual environment:
@@ -87,12 +87,17 @@ python main.py
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## 📄 Documentation
+
+- [Privacy Policy](PRIVACY.md)
+- [License](LICENSE)
+
 ## 📞 Support
 
 For support or feedback:
-1. Visit our [GitHub repository](https://github.com/erfnzdeh/quera-to-google-calendar-automation)
+1. Visit our [GitHub repository](https://github.com/erfnzdeh/EduSync)
 2. Open an issue for bug reports or feature requests
-3. Contact directly: [@Pouri2048](https://t.me/Pouri2048)
+3. Contact directly: [Pouri](erfnzdeh@gmail.com)
 
 ## 📄 License
 
