@@ -6,7 +6,7 @@ services:
     deploy_on_push: true
     repo: your-username/your-repo
   build_command: pip install -r requirements.txt
-  run_command: python telegram_bot.py
+  run_command: python main.py
   http_port: 8080
   instance_count: 1
   instance_size_slug: basic-xxs
@@ -20,7 +20,6 @@ services:
 
 runtime: python
 env: flex
-entrypoint: python main.py
 
 runtime_config:
   python_version: 3.11
