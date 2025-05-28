@@ -8,8 +8,6 @@ services:
   build_command: pip install -r requirements.txt
   run_command: python main.py
   envs:
-  - key: PYTHON_VERSION
-    value: 3.12.2
   - key: TELEGRAM_BOT_TOKEN
     type: SECRET
     value: ${TELEGRAM_BOT_TOKEN}
@@ -36,9 +34,6 @@ runtime_config:
 
 manual_scaling:
   instances: 1
-
-env_variables:
-  PORT: "8080"
 
 health_check:
   enable_health_check: true

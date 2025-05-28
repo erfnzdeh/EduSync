@@ -58,9 +58,23 @@ class QueraCalendarBot:
     def __init__(self, token: str):
         """Initialize the bot with Telegram token."""
         logger.info("Initializing Quera Calendar Bot")
-        self.application = Application.builder().token(token).build()
+        
+        # Configure application with explicit settings
+        self.application = (
+            Application.builder()
+            .token(token)
+            .concurrent_updates(True)
+            .arbitrary_callback_data(True)
+            .post_init(self._post_init)
+            .build()
+        )
+        
         self.user_data = self._load_user_data()
         logger.info(f"Loaded data for {len(self.user_data)} users")
+
+    async def _post_init(self, application: Application) -> None:
+        """Post initialization hook."""
+        logger.info("Post initialization completed")
 
         # Add conversation handler
         conv_handler = ConversationHandler(
