@@ -32,9 +32,10 @@ env_variables:
   PORT: "8080"
 
 health_check:
-  enable_health_check: True
-  check_interval_sec: 5
-  timeout_sec: 4
-  unhealthy_threshold: 2
+  enable_health_check: true
+  check_interval_sec: 10
+  timeout_sec: 5
+  unhealthy_threshold: 3
   healthy_threshold: 2
-  restart_threshold: 300 
+  restart_threshold: 300
+  path: "/" 

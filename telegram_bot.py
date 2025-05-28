@@ -581,10 +581,16 @@ class QueraCalendarBot:
     def run(self):
         """Run the bot."""
         logger.info("Starting bot")
-        # Start health check server
-        health_check_thread = threading.Thread(target=run_health_check_server)
-        health_check_thread.daemon = True
-        health_check_thread.start()
+        
+        # Start health check server first
+        try:
+            health_check_thread = threading.Thread(target=run_health_check_server)
+            health_check_thread.daemon = True
+            health_check_thread.start()
+            logger.info("Health check server started")
+        except Exception as e:
+            logger.error(f"Failed to start health check server: {e}")
+            raise
         
         # Restore auto-sync for users who had it enabled
         restored_count = 0
