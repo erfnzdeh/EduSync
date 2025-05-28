@@ -90,6 +90,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📄 Documentation
 
 - [Privacy Policy](PRIVACY.md)
+- [Terms of Service](TERMS.md)
 - [License](LICENSE)
 
 ## 📞 Support
