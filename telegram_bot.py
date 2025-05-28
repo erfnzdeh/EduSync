@@ -292,6 +292,7 @@ class QueraCalendarBot:
                 "2. Open an issue for bug reports or feature requests\n"
                 "3. Or contact me directly at: t.me/Pouri2048",
                 reply_markup=self.get_main_keyboard(user_id),
+                disable_web_page_preview=True
             )
             return MAIN_MENU
 
