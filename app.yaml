@@ -1,3 +1,23 @@
+name: quera-calendar-bot
+services:
+- name: bot
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: your-username/your-repo
+  build_command: pip install -r requirements.txt
+  run_command: python telegram_bot.py
+  http_port: 8080
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  envs:
+  - key: BOT_TOKEN
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+  - key: BOT_USERNAME
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+
 runtime: python
 env: flex
 entrypoint: python main.py

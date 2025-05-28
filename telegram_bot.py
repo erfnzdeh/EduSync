@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Dict, Optional
+import threading
 
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import (
@@ -15,6 +16,7 @@ from telegram.ext import (
 
 from gcalendar import GoogleCalendarManager
 from quera import QueraScraper
+from health_check import run_health_check_server
 
 # Configure logging
 logging.basicConfig(
@@ -579,6 +581,11 @@ class QueraCalendarBot:
     def run(self):
         """Run the bot."""
         logger.info("Starting bot")
+        # Start health check server
+        health_check_thread = threading.Thread(target=run_health_check_server)
+        health_check_thread.daemon = True
+        health_check_thread.start()
+        
         # Restore auto-sync for users who had it enabled
         restored_count = 0
         for user_id, data in self.user_data.items():
