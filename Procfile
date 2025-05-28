@@ -1,1 +1,1 @@
-web: python3.11 main.py 
+web: python main.py 
