@@ -1,0 +1,12 @@
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.flake8]
+ignore = ["E501"]
+max-line-length = 88 
