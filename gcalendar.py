@@ -56,17 +56,25 @@ class GoogleCalendarManager:
         if not self.bot_username:
             logger.warning("BOT_USERNAME not found in environment variables")
 
-        # Load client configuration
-        try:
-            with open("credentials.json", "r") as f:
-                self.client_config = json.load(f)
-                self.client_id = self.client_config["installed"]["client_id"]
-                self.client_secret = self.client_config["installed"]["client_secret"]
-        except Exception as e:
-            logger.error(f"Error loading client configuration: {e}")
+        # Load client configuration from environment variables
+        self.client_id = os.getenv("GOOGLE_CLIENT_ID")
+        self.client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+        
+        if not self.client_id or not self.client_secret:
+            logger.error("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not found in environment variables")
             self.client_config = None
-            self.client_id = None
-            self.client_secret = None
+        else:
+            # Create client config structure similar to credentials.json format
+            self.client_config = {
+                "installed": {
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "redirect_uris": ["urn:ietf:wg:oauth:2.0:oob"]
+                }
+            }
 
         # OAuth state
         self.auth_url = None
@@ -120,14 +128,18 @@ class GoogleCalendarManager:
         Returns a dictionary with the authorization URL.
         """
         try:
+            if not self.client_config:
+                logger.error("Client configuration not available")
+                return None
+
             # Create a unique state value for security
             state = "".join(
                 random.choice(string.ascii_letters + string.digits) for _ in range(30)
             )
 
-            # Create the flow
-            self.flow = InstalledAppFlow.from_client_secrets_file(
-                "credentials.json",
+            # Create the flow using client config from memory
+            self.flow = InstalledAppFlow.from_client_config(
+                self.client_config,
                 SCOPES,
                 redirect_uri="urn:ietf:wg:oauth:2.0:oob",  # Use out-of-band redirect URI
             )
