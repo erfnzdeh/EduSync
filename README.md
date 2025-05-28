@@ -13,7 +13,7 @@ A Telegram bot that automatically syncs your Quera/CW assignments with Google Ca
 
 ## ✅ TODOs
 - [ ] Write Privacy Policy For Google
-- [ ] Deploy
+- [x] Deploy
 - [ ] Get User Feedback !
 - [ ] Add SQL DB
 - [ ] Add CW Feature
